@@ -25,7 +25,7 @@ export default function Page() {
 
   async function handleUploadAndSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    alert('อัปโหลดรูปภาพและบันทึกข้อมูล');
+    alert('อัปโหลดรูปภาพและบันทึกข้อมูลแล้วนะ');
   }
 
   return (
