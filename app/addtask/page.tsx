@@ -1,92 +1,178 @@
-"use client"
-import Image from "next/image"
-import logo from "./../../assets/logo.png"
-import Link from "next/link"
-import { useState, useEffect} from "react"
-import { supabase } from "../../lib/supabaseClient"
+/* eslint-disable @next/next/no-img-element */
+"use client";
+import Image from "next/image";
+import logo from "./../../assets/logo.png";
+import Link from "next/link";
+import { useState, useEffect, use } from "react";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
 export default function Page() {
-  //สร้างตัวแปร state เพื่อผูกกับข้อมูลที่เกิดขึ้นที่หน้าจอ และบันทึกลงฐานข้อมูล
-  const [title, setTitle] = useState('');
-  const [detail, setDetail] = useState('');
-  const [is_completed, setIsCompleted] = useState<boolean>(false); //ค่าเริ่มต้นคือ ยังไม่เริ่ม (0)
-  const [image_file, setImageFile] = useState<File | null >(null);
-  const [preview_file, setPreviewFile] = useState<string | null>(null); //เก็บ URL ของรูปภาพที่เลือกมาแสดงที่หน้าจอ
+  const router = useRouter();
+  const [title, setTitle] = useState<string>("");
+  const [detail, setDetail] = useState<string>("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isComplete, setIsComplete] = useState<boolean>(false);
+  const [preview_file, setPreview_file] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  function handleSelectImagePreview(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] || null;
-
-    setImageFile(file);
-
-    if(file){
-    setPreviewFile(URL.createObjectURL(file as Blob));
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPreview_file(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
-  }
+  };
 
-  async function handleUploadAndSave(e: React.FormEvent<HTMLFormElement>) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert('อัปโหลดรูปภาพและบันทึกข้อมูลแล้วนะ');
-  }
+
+    if (!title.trim()) {
+      alert("กรุณากรอกชื่องาน");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const { data, error } = await supabase.from("task_tb").insert({
+        title: title,
+        detail: detail,
+        is_complete: isComplete,
+        image_url: preview_file,
+      });
+
+      if (error) {
+        console.error("Error:", error);
+        alert("เกิดข้อผิดพลาดในการบันทึกงาน");
+      } else {
+        console.log("Success:", data);
+        alert("บันทึกงานเรียบร้อยแล้ว");
+
+        setTitle("");
+        setDetail("");
+        setImageFile(null);
+        setPreview_file("");
+        setIsComplete(false);
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      alert("เกิดข้อผิดพลาดที่ไม่คาดคิด");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <div className="flex flex-col w-10/12 mx-auto">
-    <div className="flex flex-col items-center  mt-20 ">
-      <Image 
-        src={logo}
-        alt="logo"
-        width={100}
-        height={100}
-      />
-      <h1 className="text-xl font-bold mt-5">
-        Manage Task App
-      </h1>
-      <h1 className="text-md mt-2 mb-10 font-bold">
-        บันทึกงานของคุณ
-      </h1>
-    </div>
-    {/* ส่วนของการเพิ่มงาน */}
-    <div className="flex  flex-col border border-gray-500 mt-10 p-5 rounded-xl">
-    <h1 className="text-center text-xl font-bold ">เพิ่มงาน</h1>
+    <div className="flex flex-col w-10/12 mx-auto min-h-screen pb-10">
+      <div className="flex flex-col items-center mt-20 ">
+        <Image src={logo} alt="Logo" width={150} height={150} />
+        <h1 className="text-2xl font-bold mt-5">Manage Task App</h1>
+        <h1 className="text-2xl font-bold">บันทึกงานที่ต้องทำ</h1>
+      </div>
 
-    <form onSubmit={handleUploadAndSave}>
-    <div className="flex flex-col mt-5">
-      <label className="text-lg font-bold">งานที่ต้องทำ</label>
-      <input type="text" className="border border-gray-400 rounded-lg p-2 mt-2"/>
-    </div>
+      <div className="flex flex-col justify-center mt-10 border border-gray-400 rounded-xl p-10">
+        <h1 className="text-xl font-bold text-center">+ เพิ่มงานใหม่</h1>
+        <form onSubmit={handleSubmit}>
+          <div className="flex flex-col mt-5">
+            <label className="text-lg font-bold">งานที่ทำ</label>
+            <input
+              className="border border-gray-300 rounded-lg p-2"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="ระบุชื่องาน"
+              required
+            />
+          </div>
 
-    <div className="flex flex-col mt-5">
-          <label className="text-lg font-bold">รายละเอียดงาน</label>
-      <textarea className="border border-gray-500 rounded-lg p-2 "></textarea>
-    </div>
+          <div className="flex flex-col mt-5">
+            <label className="text-lg font-bold">รายละเอียดงานที่ทำ</label>
+            <textarea
+              className="border border-gray-300 rounded-lg p-2"
+              value={detail}
+              onChange={(e) => setDetail(e.target.value)}
+              placeholder="ระบุรายละเอียด"
+              rows={4}
+            />
+          </div>
 
-    <div className="flex flex-col mt-5">
-      <label className="text-lg font-bold">อัพโหลดรูปภาพ</label>
-      <input type="file" className="hidden" accept="image/* " onChange={handleSelectImagePreview}/>
-      <label htmlFor="fildInput" className=" bg-blue-500 rounded-lg p-2 text-white cursor-pointer w-30 text-center mt-5">เลือกรูป</label>
-      {preview_file && (
-        <div className="mt-3">
-          <Image src={preview_file} alt="preview image" width={100} height={100} />
-        </div>
-      )}
-    </div>
+          <div className="flex flex-col mt-5">
+            <label className="text-lg font-bold">อัพโหลดรูปภาพ</label>
 
-    <div className="flex flex-col mt-5">
-      <label className="text-lg font-bold"> สถานะงาน</label>
-      <select className="border border-gray-500 rounded-lg p-2">
-        <option value="0">ยังไม่เริ่ม</option>
-        <option value="1">เสร็จสิ้น</option>
-      </select>
-    </div>
+            <input
+              id="fileInput"
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
 
-    <div className="flex flex-col mt-5">
-      <button type="submit" className="bg-green-500 rounded-lg p-2 text-white">บันทึกงานเพิ่มเติม</button>
-    </div>
-      </form>
-        <div className="flex justify-center my-10">
-      <Link href="/" className="bg-blue-500 hover:bg-blue-700 transition-all duration-300 text-white font-bold py-3 px-4 rounded">กลับไปหน้าแรก</Link>
-    </div>
+            <label
+              htmlFor="fileInput"
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-32 text-center mt-2 cursor-pointer"
+            >
+              เลือกรูป
+            </label>
 
+            {preview_file && (
+              <div className="mt-3 flex flex-col">
+                <img
+                  src={preview_file}
+                  alt="Preview"
+                  className="w-40 h-40 object-cover rounded-lg border"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageFile(null);
+                    setPreview_file("");
+                  }}
+                  className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 w-32 rounded"
+                >
+                  ลบรูป
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center mt-5">
+            <label className="text-lg font-bold">สถานะงาน</label>
+            <select
+              className="border border-gray-300 rounded-lg p-2 ml-3"
+              value={isComplete ? "complete" : "incomplete"}
+              onChange={(e) => setIsComplete(e.target.value === "complete")}
+            >
+              <option value="incomplete">Incomplete</option>
+              <option value="complete">Complete</option>
+            </select>
+          </div>
+
+          <div className="flex justify-center mt-10">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`${
+                isSubmitting
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-green-500 hover:bg-green-700"
+              } text-white font-bold py-3 px-4 rounded`}
+            >
+              {isSubmitting ? "กำลังบันทึก..." : "บันทึกงาน"}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="flex justify-center mt-10">
+        <Link href="/alltask" className="text-blue-500 font-bold">
+          ดูงานทั้งหมด
+        </Link>
+      </div>
     </div>
-    </div>
-  )
+  );
 }
