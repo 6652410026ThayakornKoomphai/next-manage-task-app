@@ -3,32 +3,80 @@
 import Image from "next/image";
 import logo from "./../../assets/logo.png";
 import Link from "next/link";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect,} from "react";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
 export default function Page() {
-  //สร้างตัวแปร state เพื่อผูกกับข้อมูลที่เกิดขึ้นที่หน้าจอ และบันทึกลงฐานข้อมูล
-  const [title, setTitle] = useState('');
-  const [detail, setDetail] = useState('');
-  const [is_completed, setIsCompleted] = useState<boolean>(false); //ค่าเริ่มต้นคือ ยังไม่เริ่ม (0)
-  const [image_file, setImageFile] = useState<File | null >(null);
-  const [preview_file, setPreviewFile] = useState<string | null>(null); //เก็บ URL ของรูปภาพที่เลือกมาแสดงที่หน้าจอ
+  const router = useRouter();
+  const [title, setTitle] = useState<string>("");
+  const [detail, setDetail] = useState<string>("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isComplete, setIsComplete] = useState<boolean>(false);
+  const [preview_file, setPreview_file] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  function handleSelectImagePreview(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] || null;
-
-    setImageFile(file);
-
-    if(file){
-    setPreviewFile(URL.createObjectURL(file as Blob));
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPreview_file(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert('อัปโหลดรูปภาพและบันทึกข้อมูลแล้วนะ');
+
+    let image_url = "";
+
+    if (imageFile) {
+      const new_image_file_name = `${Date.now()}-${imageFile.name}`;
+
+      const { data, error} = await supabase.storage
+      .from("task_bk")
+      .upload(new_image_file_name, imageFile);
+
+      if (error) {
+        alert("มีข้อผิดพลาดในการอัพโหลดรูปภาพ กรุณาลองใหม่อีกครั้ง");
+        console.log(error.message);
+        return;
+      }else{
+        const {data} = await supabase.storage
+        .from("task_bk")
+        .getPublicUrl(new_image_file_name);
+
+        image_url = data.publicUrl;
+      }
+    }
+
+    const {data, error} = await supabase
+    .from("task_tb")
+    .insert({
+      title: title,
+      detail: detail,
+      is_completed: isComplete,
+      image_url: image_url 
+    })
+
+    if(error){
+      alert("มีข้อผิดพลาดในการบันทึกงาน กรุณาลองใหม่อีกครั้ง");
+      console.log(error.message);
+      return;
+    }else{
+      alert("บันทึกงานเรียบร้อยแล้ว");
+      setTitle("");
+      setDetail("");
+      setImageFile(null);
+      setPreview_file('');
+      setIsComplete(false);
+      image_url = "";
+      router.push("/alltask");
+    }
   }
 
   return (
@@ -39,11 +87,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold">บันทึกงานที่ต้องทำ</h1>
       </div>
 
-    <form onSubmit={handleUploadAndSave}>
-    <div className="flex flex-col mt-5">
-      <label className="text-lg font-bold">งานที่ต้องทำ</label>
-      <input type="text" className="border border-gray-400 rounded-lg p-2 mt-2"/>
-    </div>
+      <div className="flex flex-col justify-center mt-10 border border-gray-400 rounded-xl p-10">
+        <h1 className="text-xl font-bold text-center">+ เพิ่มงานใหม่</h1>
+        <form onSubmit={handleSubmit} className="mt-5">
+          <div className="flex flex-col mt-5">
+            <label className="text-lg font-bold">งานที่ทำ</label>
+            <input
+              className="border border-gray-300 rounded-lg p-2"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="ระบุชื่องาน"
+              required
+            />
+          </div>
 
           <div className="flex flex-col mt-5">
             <label className="text-lg font-bold">รายละเอียดงานที่ทำ</label>
@@ -129,5 +185,4 @@ export default function Page() {
         </Link>
       </div>
     </div>
-  )
-}
+  );}
