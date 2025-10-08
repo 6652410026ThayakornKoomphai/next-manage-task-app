@@ -44,6 +44,39 @@ export default function Page() {
   fetchTasks();
   }, []);
 
+async function handleDelete(id: number, image_url: string) {
+if (confirm("คุณต้องการลบงานนี้ใช่หรือไม่?")) {
+  // ลบรูปภาพจาก Supabase Storage ถ้ามี
+  if (image_url != "" ) {
+    const image_name = image_url.split("/").pop() as string;
+    const { data, error } = await supabase.storage
+      .from("task_bk")
+      .remove([image_name]);
+ 
+    if (error) {
+      alert("พบข้อผิดพลาดในการลบรูปภาพ:");
+      console.log(error.message);
+      return;
+      }
+  }
+  // ลบงานจากฐานข้อมูล
+  const { data ,error } = await supabase
+    .from("task_tb")
+    .delete()
+    .eq("id", id);
+ 
+  // ตรวจสอบข้อผิดพลาดและแจ้งเตือนผู้ใช้
+  if (error) {
+    alert("พบข้อผิดพลาดในการลบงาน:");
+    console.log(error.message);
+    return;
+  }
+ 
+ 
+  // ลบข้อมูลออกจากรายการที่แสดงผล
+  setTasks(tasks.filter((task) => task.id !== id));
+  }
+}
 
   return (
     <div className="flex flex-col w-10/12 mx-auto">
@@ -95,8 +128,8 @@ export default function Page() {
             <td className={`border border-black p-2 ${task.is_completed ? 'text-green-600' : 'text-red-600'}`}>{task.is_completed ? 'สำเร็จ' : 'ยังไม่สำเร็จ'}</td>
             <td className="border border-black p-2">{new Date(task.created_at).toLocaleDateString()}</td>
             <td className="border border-black p-2">{new Date(task.update_at).toLocaleDateString()}</td>
-            <td className="border border-black p-2"><Link href="#">แก้ไข</Link>
-            <button>ลบ</button></td>
+            <td className="border border-black p-2"><Link href={`/edittask/${task.id}`} className="mr-2 text-green-400 font-bold">แก้ไข</Link>
+            <button onClick={()=>{handleDelete(task.id, task.image_url)}} className="text-red-400 font-bold cursor-pointer">ลบ</button></td>
           </tr>
         ))}
       </tbody>
